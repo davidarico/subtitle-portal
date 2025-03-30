@@ -128,7 +128,7 @@ export default function ProjectsPage() {
   }
 
   const handleProjectCreated = (newProject: Project) => {
-    setProjects((prev) => [...prev, newProject])
+    setProjects((prev) => [newProject, ...prev])
     setIsDialogOpen(false)
   }
 
