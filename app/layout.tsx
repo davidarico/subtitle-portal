@@ -7,8 +7,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Ryan's Crazy Subtitle Emporium",
-  description: "Upload audio files and align subtitles",
-    generator: 'v0.dev'
+  description: "Upload audio files and align subtitles"
 }
 
 export default function RootLayout({

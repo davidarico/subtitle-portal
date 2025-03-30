@@ -32,14 +32,14 @@ export async function POST(request: Request) {
         const status = await getRevAIStatus(project.third_party_id)
         return {
           id: project.id,
-          status,
+          status: status === 'in_progress' ? 'pending' : status
         }
       }),
     )
 
     // Update statuses in Supabase
     for (const { id, status } of updatedStatuses) {
-      await supabase.from("projects").update({ status: status === 'in_progress' ? 'pending' : status }).eq("id", id)
+      await supabase.from("projects").update({ status }).eq("id", id)
     }
 
     return NextResponse.json({ updatedProjects: updatedStatuses })
