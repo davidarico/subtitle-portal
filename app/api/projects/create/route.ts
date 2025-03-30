@@ -5,15 +5,18 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData()
     const name = formData.get("name") as string
-    const audioFile = formData.get("audioFile") as File
-    const textFile = formData.get("textFile") as File
+    const audioPublicUrl = formData.get("audioPublicUrl") as string
+    const textPublicUrl = formData.get("textPublicUrl") as string
 
-    if (!name || !audioFile || !textFile) {
+    if (!name || !audioPublicUrl || !textPublicUrl) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Store project in Supabase
-    // getSupabase URL and Anon Key from environment variables
+    // Step 1: Post to RevAI
+    console.log("Posting to RevAI...")
+    const jobId = await postToRevAI(audioPublicUrl, textPublicUrl, name)
+
+    // Step 2: Store project in Supabase
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
     const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -21,21 +24,6 @@ export async function POST(request: Request) {
     }
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-    // Step 1: Upload files to Supabase
-    console.log("Uploading files to Supabase...")
-    const audioFileName = `${name}-audio.${audioFile.name.split('.').pop()}`
-    const textFileName = `${name}-text.${textFile.name.split('.').pop()}`
-    const audioPublicUrl = await uploadToSupabase(audioFile, audioFileName)
-    const textPublicUrl = await uploadToSupabase(textFile, textFileName)
-    if (!audioPublicUrl || !textPublicUrl) {
-      return NextResponse.json({ error: "Failed to upload files" }, { status: 500 })
-    }
-
-    // Step 2: Post to RevAI
-    console.log("Posting to RevAI...")
-    const jobId = await postToRevAI(audioPublicUrl, textPublicUrl, name)
-
-    // Step 3: Store project in Supabase
     console.log("Storing project in Supabase...")
     const { data, error } = await supabase
       .from("projects")

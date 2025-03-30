@@ -9,6 +9,15 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import type { Project } from "@/lib/types"
 import { Loader2 } from "lucide-react"
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error("Supabase URL and Anon Key must be provided")
+}
+// Initialize Supabase client
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface CreateProjectDialogProps {
   open: boolean
@@ -23,6 +32,24 @@ export default function CreateProjectDialog({ open, onClose, onProjectCreated }:
 
   const audioInputRef = useRef<HTMLInputElement>(null)
   const textInputRef = useRef<HTMLInputElement>(null)
+
+  async function uploadFile(file: File, fileName: string): Promise<string> {
+    // Upload file to Supabase storage
+    const { data, error } = await supabase.storage
+      .from("media")
+      .upload(fileName, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+    if (error) {
+      console.error("Error uploading file:", error);
+      throw error;
+    }
+
+    // Generate public URL (if needed)
+    const { data: { publicUrl } } = supabase.storage.from("media").getPublicUrl(fileName);
+    return publicUrl;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,20 +66,31 @@ export default function CreateProjectDialog({ open, onClose, onProjectCreated }:
       setError("Audio file is required")
       return
     }
-
     if (!textFile) {
-      setError("Text file is required")
+      setError("Subtitle text file is required")
       return
     }
 
     setIsSubmitting(true)
     setError("")
 
+    let audioFileName = `${projectName}-audio.${audioFile.name.split('.').pop()}`
+    let textFileName = `${projectName}-text.${textFile.name.split('.').pop()}`
+
+    const audioPublicUrl = await uploadFile(audioFile, audioFileName)
+    const textPublicUrl = await uploadFile(textFile, textFileName)
+
+    if (!audioPublicUrl || !textPublicUrl) {
+      setError("Failed to upload files")
+      setIsSubmitting(false)
+      return
+    }
+
     try {
       const formData = new FormData()
       formData.append("name", projectName)
-      formData.append("audioFile", audioFile)
-      formData.append("textFile", textFile)
+      formData.append("audioPublicUrl", audioPublicUrl)
+      formData.append("textPublicUrl", textPublicUrl)
 
       const response = await fetch("/api/projects/create", {
         method: "POST",
